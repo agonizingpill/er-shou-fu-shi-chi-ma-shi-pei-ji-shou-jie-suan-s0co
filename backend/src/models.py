@@ -1,4 +1,4 @@
-from sqlalchemy import Column,Integer,String,Float,ForeignKey,JSON,CheckConstraint
+from sqlalchemy import Column,Integer,String,Float,ForeignKey,JSON,CheckConstraint,UniqueConstraint
 from .database import Base
 class User(Base):
  __tablename__='users'
@@ -24,7 +24,11 @@ class Measurement(Base):
  id=Column(Integer,primary_key=True);garment_id=Column(Integer,ForeignKey('garments.id'),unique=True,nullable=False);chest=Column(Float,nullable=False);shoulder=Column(Float,nullable=False);length=Column(Float,nullable=False);elasticity=Column(Float,nullable=False);cut=Column(Integer,nullable=False)
 class FitProfile(Base):
  __tablename__='profiles'
- id=Column(Integer,primary_key=True);code=Column(String(40),unique=True,nullable=False);chest=Column(Float,nullable=False);shoulder=Column(Float,nullable=False)
+ id=Column(Integer,primary_key=True);code=Column(String(40),unique=True,nullable=False);chest=Column(Float,nullable=False);shoulder=Column(Float,nullable=False);merged_into_id=Column(Integer,ForeignKey('profiles.id'),nullable=True)
+class ProfileMerge(Base):
+ __tablename__='profile_merges'
+ id=Column(Integer,primary_key=True);primary_id=Column(Integer,ForeignKey('profiles.id'),nullable=False);secondary_id=Column(Integer,ForeignKey('profiles.id'),unique=True,nullable=False);shared_garments=Column(Integer,nullable=False);same_labels=Column(Integer,nullable=False);avg_prob_distance=Column(Float,nullable=False);chest_gap=Column(Float,nullable=False);shoulder_gap=Column(Float,nullable=False);evidence=Column(JSON,nullable=False);merged_at=Column(String(32),nullable=False)
+ __table_args__=(CheckConstraint('primary_id<>secondary_id'),UniqueConstraint('primary_id','secondary_id',name='uq_merge_pair'))
 class FitAssessment(Base):
  __tablename__='assessments'
  id=Column(Integer,primary_key=True);garment_id=Column(Integer,ForeignKey('garments.id'),nullable=False);profile_id=Column(Integer,ForeignKey('profiles.id'),nullable=False);state=Column(String(20),default='queued');result=Column(JSON,nullable=True);error=Column(String(500),default='')

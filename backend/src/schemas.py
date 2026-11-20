@@ -15,6 +15,8 @@ class MeasurementIn(Input):
  garment_id:int;chest:float=Field(ge=40,le=180);shoulder:float=Field(ge=20,le=80);length:float=Field(ge=20,le=180);elasticity:float=Field(ge=0,le=1);cut:int=Field(ge=0,le=2)
 class ProfileIn(Input):
  code:str=Field(min_length=2,max_length=40);chest:float=Field(ge=40,le=180);shoulder:float=Field(ge=20,le=80)
+class ProfileMergeIn(Input):
+ primary_id:int;secondary_id:int
 class AssessmentIn(Input):
  garment_id:int;profile_id:int
 class FittingIn(Input):

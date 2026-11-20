@@ -22,7 +22,7 @@ docker compose up -d --build --wait
 ## 六个协作模块
 
 1. **寄售与品相**：Consignor→Agreement→Garment。协议约定底价分值、佣金万分比和到期时间；衣物标价不得低于底价。佣金修订产生Amendment前后值与理由，已有settled销售时禁止再改。旧销售的佣金快照不随协议修改。
-2. **实测与适配**：Measurement记录胸围、肩宽、衣长、弹性和版型；未实测不能推荐，实测后unmeasured→listed。FitProfile用匿名编号；FitAssessment经worker真实计算，queued→ready/failed，失败可重新提交新评估。
+2. **实测与适配**：Measurement记录胸围、肩宽、衣长、弹性和版型；未实测不能推荐，实测后unmeasured→listed。FitProfile用匿名编号；FitAssessment经worker真实计算，queued→ready/failed，失败可重新提交新评估。顾问补录重复建档时，系统按两份档案对同批在售衣物（listed/held）的ready预测逐件比对标签与概率向量，给出相近度候选；仅店长可合档：两份档案都有未结束预约时409暂缓，合档后副档置`merged_into_id`指向主档，新预约/新适配只收主档，已排队适配仍按原档由worker计算，旧编号与历史建议保留可查；合档请求幂等，重试不改换已定主档。
 3. **预约与排他留衣**：Fitting约定买家、衣物、试衣位1/2和至多2小时时段。只有listed可约，预约使衣物held；一衣一客和同位时段不重叠，取消释放为listed。有效协议结束前才可安排。
 4. **成交与佣金**：只有当前留衣在预约时间内成交，价格≥底价。Sale按当时佣金万分比四舍五入到分，保存成交、佣金、应付金额与七天退货截止，衣物sold，预约completed。
 5. **退货与复检**：七天内未结算订单可退，Sale returned、衣物inspection；pending退货必须店长记检查结果，relist恢复listed，retire产生交还凭据。寄售期已满不可复上架。原已退销售不能结算。
@@ -49,7 +49,7 @@ worker通过Redis BLPOP读取实际FitAssessment，结果持久化。Redis短暂
 
 ## 结构、枚举与开发
 
-backend/src/models.py为寄售关系模型，schemas.py严格字段校验与非有限值拒绝；consignment_service、fit_service、fitting_service、sale_service、return_service、settlement_service分别封装六领域规则。routes.py做JWT权限，common.py做父锁/审计，fit_model/worker负责计算。middlewares.py有RequestTrace及Recovery。
+backend/src/models.py为寄售关系模型，schemas.py严格字段校验与非有限值拒绝；consignment_service、fit_service、fitting_service、sale_service、return_service、settlement_service、merge_service分别封装领域规则（末者为体型档案合档）。routes.py做JWT权限，common.py做父锁/审计，fit_model/worker负责计算。合档与预约、适配同走Shop全店父锁，并发请求串行化，不会出现脏合档。middlewares.py有RequestTrace及Recovery。
 
 frontend/src/pages六页独立业务任务，components/tailor.js含衣物吊牌、状态、标题/表单等共享组件，utils/api.js做请求/会话/store、utils/format.js做转义/数据类型。角色、服饰状态、适配类别枚举在backend/src/constants.py；前端角色/状态在frontend/src/constants.js，算法标签与展示文案对应。
 
@@ -64,6 +64,6 @@ seed自然键补缺，已有佣金修订、状态与结算/退货完整保留。
 
 ## 已知边界
 
-单店两试衣位，匿名体型不含真实身份；合成样本不代表真实尺码适配质量。实测只录一次，未做历史测量修订。所有金额为整数分、仅同一模拟币种，无支付网关、退货退款外部调用或电子合同。需要显式取消过期留衣或期满撤回来释放，未做自动预约到时任务。Shop全店父锁优先小规模正确性，吞吐有限。BLPOP弹出任务后被强杀仍不自动重投，短暂Redis断线可恢复；没有生产迁移和多店隔离。
+单店两试衣位，匿名体型不含真实身份；合成样本不代表真实尺码适配质量。实测只录一次，未做历史测量修订。档案合档需店长逐对手动认定、不可撤销，不设自动合档阈值，候选仅按同批在售衣物的共同预测呈现。所有金额为整数分、仅同一模拟币种，无支付网关、退货退款外部调用或电子合同。需要显式取消过期留衣或期满撤回来释放，未做自动预约到时任务。Shop全店父锁优先小规模正确性，吞吐有限。BLPOP弹出任务后被强杀仍不自动重投，短暂Redis断线可恢复；没有生产迁移和多店隔离。
 
 License: MIT（本项目新增源码）。

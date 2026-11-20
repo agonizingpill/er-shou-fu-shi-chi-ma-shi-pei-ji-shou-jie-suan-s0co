@@ -8,7 +8,9 @@ def measure(s,d):
 def profile(s,d):
  lock(s);x=FitProfile(**d);s.add(x);s.flush();return x
 def assess(s,d):
- lock(s);g=garment(s,d['garment_id']);get(s,FitProfile,d['profile_id'])
+ lock(s);g=garment(s,d['garment_id']);p=get(s,FitProfile,d['profile_id'])
+ if p.merged_into_id:
+  m=get(s,FitProfile,p.merged_into_id);fail('档案 %s 已合入主档 %s，新适配请按主档提交'%(p.code,m.code))
  if not any(x.garment_id==g.id for x in rows(s,Measurement)):fail('未实测服饰不得推荐尺码')
  if g.state not in ['listed','held']:fail('服饰不在可试穿状态')
  x=FitAssessment(**d);s.add(x);s.flush();return x

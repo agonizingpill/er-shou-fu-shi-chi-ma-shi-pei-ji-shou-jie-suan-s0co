@@ -5,14 +5,17 @@ from .models import *
 from .schemas import *
 from .common import *
 from .security import current,allow
-from . import consignment_service as consignment,fit_service as fit,fitting_service as fitting,sale_service as sale,return_service as returns,settlement_service as settlement
+from . import consignment_service as consignment,fit_service as fit,fitting_service as fitting,sale_service as sale,return_service as returns,settlement_service as settlement,merge_service as merging
 router=APIRouter()
 def change(u,action,fn,supervisor=False):
  allow(u,*(['supervisor'] if supervisor else ['operator','supervisor']))
  with Session() as s:x=fn(s);audit(s,u,action,x);s.commit();return dump(x)
 @router.get('/register')
 def register(u=Depends(current)):
- with Session() as s:return {n:[dump(x) for x in rows(s,c)] for n,c in [('consignors',Consignor),('agreements',Agreement),('amendments',Amendment),('garments',Garment),('measurements',Measurement),('profiles',FitProfile),('assessments',FitAssessment),('fittings',Fitting),('sales',Sale),('returns',Return),('payouts',Payout),('withdrawals',Withdrawal),('clock',Shop)]}
+ with Session() as s:
+  data={n:[dump(x) for x in rows(s,c)] for n,c in [('consignors',Consignor),('agreements',Agreement),('amendments',Amendment),('garments',Garment),('measurements',Measurement),('profiles',FitProfile),('assessments',FitAssessment),('fittings',Fitting),('sales',Sale),('returns',Return),('payouts',Payout),('withdrawals',Withdrawal),('merges',ProfileMerge),('clock',Shop)]}
+  data['merge_candidates']=merging.candidates(s)
+  return data
 @router.get('/audit')
 def audits(u=Depends(current)):
  with Session() as s:return [dump(x) for x in rows(s,Audit)]
@@ -28,6 +31,11 @@ def garments(d:GarmentIn,u=Depends(current)):return change(u,'入店验衣',lamb
 def measurements(d:MeasurementIn,u=Depends(current)):return change(u,'服饰实测',lambda s:fit.measure(s,d.model_dump()))
 @router.post('/profiles')
 def profiles(d:ProfileIn,u=Depends(current)):return change(u,'匿名体型',lambda s:fit.profile(s,d.model_dump()))
+@router.get('/profile-merge-candidates')
+def merge_candidates(u=Depends(current)):
+ with Session() as s:return merging.candidates(s)
+@router.post('/profile-merges')
+def profile_merges(d:ProfileMergeIn,u=Depends(current)):return change(u,'体型档案合档',lambda s:merging.merge(s,d.model_dump()),True)
 @router.post('/assessments')
 def assessments(d:AssessmentIn,u=Depends(current)):
  d=change(u,'适配计算',lambda s:fit.assess(s,d.model_dump()))
